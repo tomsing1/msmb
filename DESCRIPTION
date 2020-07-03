@@ -1,0 +1,16 @@
+Package: msmb
+Title: Thomas' notes for Modern Statistics for Modern Biology
+Version: 0.0.1
+Authors@R: 
+    person(given = "Thomas",
+           family = "Sandmann",
+           role = c("aut", "cre"),
+           email = "sandmann.t@gmail.com")
+Description: This package contains R markdown documents with notes taken
+    while working the 'Modern Statistics for Modern Biology' textbook by
+    Holmes & Huber
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.0

@@ -1,0 +1,31 @@
+---
+title: "Chapter 1"
+author: "Thomas Sandmann"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Expected frequency of X to be exactly 3 for a Poisson distribution with rate 5:
+
+```{r}
+dpois(x = 3, lambda = 5)
+```
+
+Probabilities of seeing 0,1,2,...,12 mutations, as modeled by the Poisson(5) distribution. The plot shows that we will often see 4 or 5 mutations but rarely as many as 12. The distribution continues to higher numbers ($13,...$), but the probabilities will be successively smaller, and here we don\'t visualize them.
+
+```{r fig.width = 5.9, fig.height = 5}
+barplot(dpois(0:12, 5), names.arg = 0:12, col = "red")
+```
+
+```{r fig.cap="Simulated distribution of B(10000, $10^{-4}$) for 300,000 simulations.", fig.width = 7, fig.height = 5.5}
+rbinom(1, prob = 5e-4, size = 10000)
+simulations = rbinom(n = 300000, prob = 5e-4, size = 10000)
+barplot(table(simulations), col = "lavender")
+```
+

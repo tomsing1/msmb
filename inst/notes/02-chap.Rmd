@@ -1,0 +1,176 @@
+---
+title: "Chapter 2"
+author: "Thomas Sandmann"
+date: "Last compiled on `r format(Sys.time(), '%d %B, %Y')`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(here)
+library(Biostrings)
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(GenomicRanges)
+```
+
+## 2.10.1 Modeling in the case of dependencies
+
+```{r}
+chr8 <- Hsapiens$chr8
+CpGtab <- read.table(gzfile(here("inst", "extdata",
+                                "model-based-cpg-islands-hg19.txt.gz")), 
+                    stringsAsFactors = FALSE, header = TRUE)
+nrow(CpGtab)
+head(CpGtab)
+```
+
+```{r}
+irCpG <- with(dplyr::filter(CpGtab, chr == "chr8"),
+             IRanges(start = start, end = end))
+grCpG <- GRanges(irCpG, seqnames = "chr8", strand = "+")
+genome(grCpG) <- "hg19"
+```
+
+```{r}
+CGIview <- Views(unmasked(chr8), irCpG)
+NonCGIview <- Views(unmasked(chr8), gaps(irCpG))
+```
+
+CpG islands are usually shorter than non-CpG islands. This needs to be taken
+into account when we sample representative sequences from each category (see
+below).
+
+```{r}
+limits = range(log(lengths(CGIview)), log(lengths(NonCGIview)))
+br = seq(limits[1], limits[2], length.out = 50)
+h1 = hist(log(lengths(CGIview)), breaks = br, plot = FALSE)
+h2 = hist(log(lengths(NonCGIview)), breaks = br, plot = FALSE)
+plot(h1, col = adjustcolor("red", 0.4), xlim = limits,
+     main = "Length distributions")
+plot(h2, col = adjustcolor("blue", 0.4), add = TRUE)
+```
+
+```{r}
+seqCGI <- as(CGIview, "DNAStringSet")
+seqNonCGI <- as(NonCGIview, "DNAStringSet")
+```
+
+```{r}
+dinucCpG <- sapply(seqCGI, dinucleotideFrequency)
+dinucNonCpG <- sapply(seqNonCGI, dinucleotideFrequency)
+```
+
+```{r}
+dim(dinucCpG) 
+dinucCpG[, 1:3]  # array with transitions in rows and sequences in columns
+```
+
+```{r}
+IsICounts <- rowSums(dinucCpG)
+NonICounts <- rowSums(dinucNonCpG)
+```
+
+```{r}
+TI = matrix(IsICounts, ncol = 4, byrow = TRUE)
+TnI = matrix(NonICounts, ncol = 4, byrow = TRUE)
+dimnames(TI) <- dimnames(TnI) <- list(c("A", "C", "G", "T"),
+                                      c("A", "C", "G", "T"))
+```
+
+```{r}
+MI = TI / rowSums(TI)
+MN = TnI / rowSums(TnI)
+```
+
+```{r}
+freqIsl = alphabetFrequency(seqCGI, baseOnly = TRUE, collapse = TRUE)[1:4]
+freqNon = alphabetFrequency(seqNonCGI, baseOnly = TRUE, collapse = TRUE)[1:4]
+```
+
+As expected, CpG islands contain a higher fraction of C's and G's:
+
+```{r}
+freqIsl / sum(freqIsl)
+freqNon / sum(freqNon)
+```
+
+```{r}
+# log likelihood of observing a single base in a CpG island versus a non-island
+alpha = log((freqIsl/sum(freqIsl)) / (freqNon/sum(freqNon)))
+
+# log likelihood of observing a transition in a CpG island versus a non-island
+beta = log(MI / MN)
+```
+
+```{r}
+scorefun = function(x) {
+  s = unlist(strsplit(x, ""))
+  score = alpha[s[1]]  # probability of observing the first base
+  if (length(s) >= 2) {
+    for (j in 2:length(s)) {
+      score = score + beta[s[j-1], s[j]]  # probability of transition
+    }
+  }
+  return(score)
+}
+```
+
+```{r}
+x = "ACGTTATACTACG"
+scorefun(x)  # -0.2824623
+```
+
+```{r}
+generateRandomScores <- function(s, k = 100, B = 1000) {
+  alphFreq <- alphabetFrequency(s)
+  # exclude sequences with any non A-C-G-T nucleotides
+  isGoodSeq <- rowSums(alphFreq[, 5:ncol(alphFreq)]) == 0L
+  s = s[isGoodSeq]
+  slen = lengths(s)
+  
+  # sampling probability should reflect sequence length, e.g. the number of
+  # k-mers they contain to make sure the sampled sequences reflect the length
+  # distribution of the full dataset
+  prob = pmax(slen - k, 0)  # number of 100-mers in each sequence
+  prob = prob / sum(prob)  # probabilities must sum to 1
+  
+  # pick B sequences in s according to the length
+  idx = sample(seq_along(s), B, replace = TRUE, prob = prob)
+  ssmp = s[idx]  # subset s to the sampled sequences
+  
+  # sample k-mers from each sequence
+  start = sapply(ssmp, function(x) sample(length(x) - k, 1))
+  scores = sapply(seq_len(B), function(i) {
+    kmer_bases <- seq(start[i], length.out = k + 1)
+    scorefun(as.character(ssmp[[i]][kmer_bases] ))
+  })
+  return(scores / k)
+}
+```
+
+```{r}
+set.seed(123)
+scoresCGI <- generateRandomScores(seqCGI)
+scoresNonCGI <- generateRandomScores(seqNonCGI)
+```
+
+```{r}
+median(scoresCGI)
+median(scoresNonCGI)
+```
+
+```{r}
+xlimits = range(scoresCGI, scoresNonCGI)
+br = seq(xlimits[1], xlimits[2], length.out = 50)
+h1 = hist(scoresCGI, breaks = br, plot = FALSE)
+h2 = hist(scoresNonCGI, breaks = br, plot = FALSE)
+ylimits <- range(h1$counts, h2$counts)
+plot(h1, col = adjustcolor("red", 0.4), xlim = xlimits, ylim = ylimits)
+plot(h2, col = adjustcolor("blue", 0.4), add = TRUE)
+```

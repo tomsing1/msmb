@@ -29,3 +29,31 @@ simulations = rbinom(n = 300000, prob = 5e-4, size = 10000)
 barplot(table(simulations), col = "lavender")
 ```
 
+🎓 Task: Verify by simulation that the sum of 50 independent Bernoulli variables with `p = 0.01` is – to good enough approximation – the same as 
+a `Poisson(0.5)` random variable.
+
+```{r}
+set.seed(123)
+n_trials = 5e5
+sum(rbinom(n = n_trials, size = 50, prob = 0.01))
+sum(rpois(n = n_trials, lambda = 0.5))
+```
+
+```{r}
+set.seed(123)
+barplot(rpois(n = 100, lambda = 0.5), names.arg = 1:100, ylim = c(0, 7),
+        width = 0.7, xlim = c(-0.5, 100.5))
+```
+
+Experiment with the random number generator that generates all possible numbers between 0 and 1 through the function called `runif`. Use it to generate a random variable with 4 levels (A, C, G, T) with probabilities
+1/8, 3/8, 3/8 and 1/8, respectively.
+
+```{r}
+probabilities <- c(1, 3, 3, 1) / 8
+probabilities
+bases <- cut(
+  runif(1e5),
+  breaks = c(0, cumsum(probabilities)),
+  labels = c("A", "C", "G", "T"))
+table(bases) / 1e5
+```

@@ -504,7 +504,8 @@ expplot(width(betweenmotifs), rate = 1/mean(width(betweenmotifs)),
 ## ----chr8HS--------------------------------------------------------------------------------------------------------------------
 library("BSgenome.Hsapiens.UCSC.hg19")
 chr8  =  Hsapiens$chr8
-CpGtab = read.table("../data/model-based-cpg-islands-hg19.txt",
+CpGtab = read.table(gzfile(here::here("inst", "extdata", 
+                               "model-based-cpg-islands-hg19.txt.gz")),
                     header = TRUE)
 nrow(CpGtab)
 head(CpGtab)
